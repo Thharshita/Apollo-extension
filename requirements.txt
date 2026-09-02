@@ -1,0 +1,9 @@
+selenium
+beautifulsoup4
+fastapi
+validators
+requests
+pandas
+openpyxl
+python-multipart
+ddgs
