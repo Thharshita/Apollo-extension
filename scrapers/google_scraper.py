@@ -110,6 +110,7 @@ def google_search(company_name: str, known_website: str = None) -> dict:
     }
 
     IGNORED_DOMAINS = {
+        "wikipedia.org",
         "linkedin.com",
         "facebook.com",
         "instagram.com",

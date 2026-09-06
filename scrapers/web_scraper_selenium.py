@@ -14,16 +14,6 @@ import random
 
 #fetch_links_using_selenium
 async def selenium_fetch_links(url)-> tuple[int, List[str], str]:
-    """
-    Fetches links from a URL using Selenium.
-
-    Args:
-        url (str): URL to fetch links from.
-
-    Returns:
-        Tuple[int, List[str]]: Link status and list of links.
-    """
-
     from selenium.webdriver.common.by import By
     import time
     from constant import ips
@@ -36,8 +26,6 @@ async def selenium_fetch_links(url)-> tuple[int, List[str], str]:
     driver = webdriver.Chrome(options=options)
 
     try:
-        logger.info(f"Fetching links from {url} using Selenium")
-
         driver.get(url)
         time.sleep(3)
         driver.implicitly_wait(15)
@@ -62,7 +50,7 @@ async def selenium_fetch_links(url)-> tuple[int, List[str], str]:
         return 1, list_of_links
     
     except Exception as e:
-        logger.error(f"An error occurred while fetching through selenium: {str(e)}")
+        logger.error(f"An error occurred while fetching through selenium for url {url}: {str(e)}")
         return 0, {"status":0, "message":"", "result":str(e)}
   
 
@@ -108,7 +96,13 @@ async def extract_contents_selenium(links, crawl_link):
                 tag.decompose()
             return extract_name_number_designation(parsed_content.get_text(separator=' ', strip=True))
 
-        contact_links = [l for l in links if 'contact' in urlparse(l).path.lower()]
+        contact_links = [
+            link for link in links
+            if any(
+                marker in f"{urlparse(link).path}#{urlparse(link).fragment}".lower()
+                for marker in ("contact", "get-in-touch", "get_in_touch", "getintouch")
+            )
+        ]  #https://ttdlogistics.in/#/examples/contactus
         other_links = [l for l in links if l not in contact_links]
 
         logger.info(f"Contact links found using selenium: {contact_links}")
@@ -134,24 +128,21 @@ async def extract_contents_selenium(links, crawl_link):
                 continue
 
         # If contact pages did not complete the pair, inspect at most 15 others.
-        for link in other_links[:15]:
-            try:
-                info = scrape_link(link)
-                found_email = found_email or info.get('email')
-                found_number = found_number or info.get('number')
-                if info.get('email') or info.get('number'):
-                    response.append({"link": link, **info})
-                if found_email and found_number:
-                    logger.info("Both email and number found, stopping.")
-                    break
-            except Exception as e:
-                logger.error(f"An error occurred for link: {link}: {str(e)}")
-                continue
+        # for link in other_links[:15]:
+        #     try:
+        #         info = scrape_link(link)
+        #         found_email = found_email or info.get('email')
+        #         found_number = found_number or info.get('number')
+        #         if info.get('email') or info.get('number'):
+        #             response.append({"link": link, **info})
+        #         if found_email and found_number:
+        #             logger.info("Both email and number found, stopping.")
+        #             break
+        #     except Exception as e:
+        #         logger.error(f"An error occurred for link: {link}: {str(e)}")
+        #         continue
 
         driver.quit()
-        total_time = process_tat(start_time, time.time())
-        logger.info(f"Total time taken: {total_time}")
-        logger.info(f"selenium metrics: {response}")
         return response
 
     except Exception as e:

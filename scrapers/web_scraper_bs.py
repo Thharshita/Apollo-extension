@@ -9,6 +9,8 @@ from typing import Tuple, List, Any, Dict
 from logger import logger
 from utils import extract_name_number_designation
 
+REQUEST_PROXIES = PROXY or {"http": None, "https": None}
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def fetch_links(url) -> Tuple[int, List[str], str]:
     """
@@ -25,7 +27,7 @@ async def fetch_links(url) -> Tuple[int, List[str], str]:
         selenium="NO"
         
         response = requests.get(url,
-            proxies=PROXY, 
+            proxies=REQUEST_PROXIES,
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=10)
         
@@ -124,25 +126,14 @@ def _scrape_contact_info(link: str) -> dict:
 
 
 def _is_contact_link(link: str) -> bool:
-    return bool(re.search(r'contact(?:-?us|s)?', link.lower()))
+    normalized = re.sub(r'[-_\s./]+', '', link.lower())
+    return bool(re.search(
+        r'(?:contact(?:us|s)?|getintouch|reach(?:out)?(?:us)?|talkto(?:us)?|connect(?:with)?(?:us)?)',
+        normalized,
+    ))
 
+async def extract_contents(links: List[str], use_selenium: str, crawl_link: str) -> Dict[str, Any]:
 
-async def extract_contents(
-    links: List[str], 
-    use_selenium: str, 
-    crawl_link: str
-) -> Dict[str, Any]:
-    """
-    Extracts content from links, prioritizing contact pages for person/org info.
-
-    Args:
-        links (List[str]): List of links to extract content from.
-        use_selenium (str): Whether to use Selenium.
-        crawl_link (str): Main link whose sublinks will also be extracted.
-
-    Returns:
-        Dict[str, Any]: Contact info dict with name, email, number, designation, department.
-    """
     try:
         logger.info("Inside extract content")
         logger.info(f"Links: {links}, use_selenium: {use_selenium}")
@@ -160,6 +151,7 @@ async def extract_contents(
         information=[]
         found_email = None
         found_number = None
+
         for link in contact_links:
             info = _scrape_contact_info(link)
             if any(info.values()):
@@ -173,17 +165,18 @@ async def extract_contents(
                 
 
         # Fallback to other links
-        for link in other_links[:15]:
-            info = _scrape_contact_info(link)
-            if any(info.values()):
-                logger.info(f"Contact info found in fallback link: {link}")
-                information.append({"link": link, **info})
-            found_email = found_email or info.get("email")
-            found_number = found_number or info.get("number")
-            if found_email and found_number:
-                logger.info("Both email and number found, stopping.")
-                break
-        logger.info(f"metrics: {information}")
+        # for link in other_links[:15]:
+        #     info = _scrape_contact_info(link)
+        #     if any(info.values()):
+        #         logger.info(f"Contact info found in fallback link: {link}")
+        #         information.append({"link": link, **info})
+        #     found_email = found_email or info.get("email")
+        #     found_number = found_number or info.get("number")
+        #     if found_email and found_number:
+        #         logger.info("Both email and number found, stopping.")
+        #         break
+        # logger.info(f"metrics: {information}")
+        
         return information
 
     except Exception as e:
@@ -198,7 +191,7 @@ async def check_link(url):
         selenium="NO"
 
         response = requests.get(url,
-            proxies=PROXY, 
+            proxies=REQUEST_PROXIES,
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=10)
         
